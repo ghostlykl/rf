@@ -2,15 +2,16 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 const morgan = require('morgan');
 const bodyParser = require('body-parser')
 const urlencodedParser = bodyParser.urlencoded({ extended: false })
 const jwt = require('jsonwebtoken');
 
+
 const app = express();
 const server = http.createServer(app);
 const port = 3000;
-const tokenKey = '1a2b-3c4d-5e6f-7g8h'
 module.exports = app
 
 app.use(cors());
@@ -63,27 +64,53 @@ let jsonfile = require('jsonfile');
 
 let file = jsonfile.readFileSync('data.json');
 
-app.post('/api/auth', (req, res) => {
+app.post('/api/auth', async(req, res) => {
   const {login, password} = req.body;
   
+  let data = null
   for (let value of file) {
     if (
-      login === value.login &&
-      password === value.password
-    ) {
-     return res.status(200).json({
-        id: value.id,
-        login: value.login,
-        //token: jwt.sign({ id: value.id }, tokenKey),        
-      })
+      login === value.login 
+    ) { 
+      data = value;
     }
   }
-  
- 
-    
-  //return res.status(404).json({ message: 'User not found' })
+
+  const verifiePassword = await bcrypt.compare(
+    password, 
+    data.password,
+  );
+if (verifiePassword)
+    return res
+      .status(401)
+      .json({error: true, message:"inv"});
 });
 
+app.post('/api/register', async(req, res) => {
+  const {login, password} = req.body;
+
+  for (let value of file) {
+    if (
+      login === value.login)
+      {
+        data = value
+      };
+      const hashPassword = await bcrypt.hash(password, 532523);
+      const user = {
+        login: login,
+        password: hashPassword,
+      };
+      jsonfile.readFile('data.json', (err, obj) => {
+        if (err) throw err;
+        let fileObj = obj;
+        fileObj.push(user);
+        jsonfile.writeFile('data.json', fileObj, (err) => {
+          if (err) throw err;
+        });
+    });
+    res.status(200).send('ok')
+};
+});
 
 app.get('/book', (req, res) => {
   res.status(200).type('text/plain')
